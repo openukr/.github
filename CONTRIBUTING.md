@@ -3,8 +3,8 @@
 <!-- PRE-RELEASE BANNER — Remove this block once v1.0.0 is released -->
 
 > [!CAUTION]
-> **openUKR befindet sich in aktiver Entwicklung und wurde noch nicht getestet oder auditiert.
-> Contributions sind willkommen, aber bitte beachte, dass sich APIs und Strukturen noch ändern können.**
+> **openUKR is under active development and has not yet been tested or audited.
+> Contributions are welcome, but please note that APIs and project structure may still change.**
 
 <!-- END PRE-RELEASE BANNER -->
 

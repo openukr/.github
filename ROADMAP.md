@@ -5,7 +5,7 @@
 <!-- PRE-RELEASE BANNER — Remove this block once v1.0.0 is released -->
 
 > [!CAUTION]
-> **openUKR befindet sich in aktiver Entwicklung. Es wurde noch nicht getestet oder auditiert. Kein offizielles Release vorhanden.**
+> **openUKR is under active development. It has not yet been tested or audited. No official release exists.**
 
 <!-- END PRE-RELEASE BANNER -->
 

@@ -5,80 +5,80 @@
 <!-- ──────────────────────────────────────────────────────────────── -->
 
 > [!CAUTION]
-> **Dieses Projekt befindet sich in aktiver Entwicklung und wurde noch nicht vollständig getestet oder auditiert.**
-> Es existiert kein offizielles Release. Bitte nicht in Produktionsumgebungen einsetzen.
+> **This project is under active development and has not yet been fully tested or audited.**
+> No official release exists. Do not use in production environments.
 
 <!-- END PRE-RELEASE BANNER -->
 
-Sicherheit hat bei openUKR höchste Priorität. Dieses Dokument beschreibt unsere Sicherheitsrichtlinien, Meldeverfahren und Härtungsmaßnahmen.
+Security is the highest priority for openUKR. This document describes our security policies, vulnerability reporting procedures, and hardening measures.
 
-## 1. Sicherheitsarchitektur
+## 1. Security Architecture
 
-openUKR ist nach dem Prinzip **Security by Design** entworfen:
+openUKR is designed following the principle of **Security by Design**:
 
-- **Minimal Privileges**: Container laufen als Non-Root (UID 1000), Read-Only Filesystem, Drop All Capabilities, Seccomp RuntimeDefault.
-- **Crypto-Hardening**: Verwendung von Go Standard-Crypto (BSI TR-02102-1 konform). Key-Material wird im Speicher überschrieben (`Wipe()`).
-- **Integrität**: Jeder Schlüssel erhält einen SHA-256 Fingerprint im CRD-Status.
-- **Isolation**: Strenge Trennung von Namespaces via Webhook-Validierung.
-- **Auditierung**: Kritische Operationen erzeugen strukturierte Logs.
-- **Path Traversal Protection**: Filesystem Publisher erzwingt absolute Pfade und verwirft `..`-Segmente.
-- **HTTPS Enforcement**: HTTP Publisher erzwingt HTTPS, sofern nicht explizit deaktiviert.
-- **Entropy Preflight**: Controller startet nur, wenn `crypto/rand` funktional ist.
+- **Minimal Privileges**: Containers run as non-root (UID 1000), read-only filesystem, drop all capabilities, Seccomp RuntimeDefault.
+- **Crypto Hardening**: Uses Go standard crypto library (BSI TR-02102-1 compliant). Key material is overwritten in memory (`Wipe()`).
+- **Integrity**: Every key receives a SHA-256 fingerprint in the CRD status.
+- **Isolation**: Strict namespace separation enforced via webhook validation.
+- **Auditing**: Critical operations produce structured logs.
+- **Path Traversal Protection**: Filesystem Publisher enforces absolute paths and rejects `..` segments.
+- **HTTPS Enforcement**: HTTP Publisher enforces HTTPS unless explicitly disabled.
+- **Entropy Preflight**: Controller only starts when `crypto/rand` is functional.
 
 ## 2. Compliance & Standards
 
-openUKR unterstützt die Einhaltung folgender Standards:
+openUKR supports compliance with the following standards:
 
-- **BSI IT-Grundschutz** (APP.4.4 Kubernetes, SYS.1.6 Container)
-- **ISO/IEC 27001** (A.10 Kryptographie, A.12 Betriebssicherheit)
+- **BSI IT-Grundschutz** (APP.4.4 Kubernetes, SYS.1.6 Containers)
+- **ISO/IEC 27001** (A.10 Cryptography, A.12 Operations Security)
 - **NIST SP 800-57** (Key Management Recommendations)
-- **DSGVO** (Art. 32 Sicherheit der Verarbeitung)
+- **GDPR** (Art. 32 Security of Processing)
 
-Für Details zur Konfiguration siehe [Compliance Guide](./docs/operations/COMPLIANCE_GUIDE.md).
+For configuration details, see the [Compliance Guide](./docs/operations/COMPLIANCE_GUIDE.md).
 
-## 3. Härtungsmaßnahmen
+## 3. Hardening Measures
 
 ### Container
 - Base Image: `gcr.io/distroless/static:nonroot`
-- Keine Shell, keine Paketmanager im Image.
-- Binaries sind stripped (`-s -w`) und ohne Pfadinformationen (`-trimpath`).
-- Seccomp Profil: `RuntimeDefault`
+- No shell, no package managers in the image.
+- Binaries are stripped (`-s -w`) and built without path information (`-trimpath`).
+- Seccomp Profile: `RuntimeDefault`
 
-### Kommunikation
+### Communication
 - Controller ↔ K8s API: TLS 1.2+ (de facto TLS 1.3)
 - Webhook: TLS 1.2+ (via cert-manager)
-- HTTP Publisher: HTTPS erzwungen, Response Body auf 1 MB begrenzt
-- HTTP/2 deaktiviert (CVE-2023-44487 Mitigation)
+- HTTP Publisher: HTTPS enforced, response body limited to 1 MB
+- HTTP/2 disabled (CVE-2023-44487 mitigation)
 
-### Speicher
-- Secrets: Standardspeicherung in Kubernetes Secrets (etcd Encryption-at-Rest wird vorausgesetzt).
-- Keine persistenten Volumes für Key-Material im Controller.
-- Private Key-Material wird nach Nutzung im Speicher überschrieben (`Wipe()`).
-- Dateien auf Filesystem: `0444` (read-only), Verzeichnisse: `0750`
+### Storage
+- Secrets: Stored in Kubernetes Secrets (etcd encryption-at-rest is required).
+- No persistent volumes for key material in the controller.
+- Private key material is overwritten in memory after use (`Wipe()`).
+- Files on filesystem: `0444` (read-only), directories: `0750`
 
-## 4. Schwachstellen melden
+## 4. Reporting Vulnerabilities
 
 > [!IMPORTANT]
-> **Bitte öffnen Sie KEIN öffentliches Issue für Sicherheitslücken.**
+> **Please do NOT open a public issue for security vulnerabilities.**
 
-Wenn Sie eine Sicherheitslücke in openUKR entdecken, melden Sie diese bitte vertraulich:
+If you discover a security vulnerability in openUKR, please report it confidentially:
 
-1. **E-Mail**: Senden Sie eine detaillierte Beschreibung an die Projektverantwortlichen (Kontaktdaten werden bei Veröffentlichung auf GitHub hinterlegt).
-2. **Inhalt**: Beschreiben Sie den Angriffsvektor, betroffene Komponenten und (falls möglich) einen Proof of Concept.
-3. **Reaktionszeit**: Wir bestätigen den Empfang innerhalb von 48 Stunden und streben eine Behebung innerhalb von 14 Tagen an.
+1. **Email**: Send a detailed description to the project maintainers (contact details will be published on GitHub upon release).
+2. **Content**: Describe the attack vector, affected components, and (if possible) a proof of concept.
+3. **Response Time**: We will acknowledge receipt within 48 hours and aim to resolve the issue within 14 days.
 
 ## 5. Security Updates
 
-Sicherheitsupdates werden über neue Container-Images und Helm-Chart-Versionen bereitgestellt.
+Security updates are delivered via new container images and Helm chart versions.
 
-### Versionierung
-- **Patch-Releases** (z.B. 1.0.1): Enthalten Bugfixes und Security-Patches. Sofortiges Update empfohlen.
-- **Minor-Releases** (z.B. 1.1.0): Neue Features, kompatibel.
-- **Major-Releases** (z.B. 2.0.0): Breaking Changes, Migrationspfad dokumentiert.
+### Versioning
+- **Patch Releases** (e.g., 1.0.1): Contain bugfixes and security patches. Immediate update recommended.
+- **Minor Releases** (e.g., 1.1.0): New features, backward compatible.
+- **Major Releases** (e.g., 2.0.0): Breaking changes, migration path documented.
 
-## 6. Dokumentenhistorie
+## 6. Document History
 
-| Version | Datum | Änderung |
+| Version | Date | Change |
 |---|---|---|
-| 1.1 | 2026-02-13 | Path Traversal + HTTPS Enforcement, Vulnerability Reporting, Pre-Release Hinweis |
-| 1.0 | 2026-02-13 | Initiale Version |
+| 1.1 | 2026-02-13 | Path traversal + HTTPS enforcement, vulnerability reporting, pre-release notice |
+| 1.0 | 2026-02-13 | Initial version |

@@ -3,28 +3,28 @@
 <!-- PRE-RELEASE BANNER — Remove this block once v1.0.0 is released -->
 
 > [!CAUTION]
-> **Dieses Dokument beschreibt die geplante Compliance-Architektur. openUKR wurde noch nicht vollständig getestet oder auditiert. Nicht in Produktion einsetzen.**
+> **This document describes the planned compliance architecture. openUKR has not yet been fully tested or audited. Do not use in production.**
 
 <!-- END PRE-RELEASE BANNER -->
 
-> **Compliance References**: G-2, G-9 · BSI APP.4.4 · ISO/IEC 27001 · DSGVO Art. 32 · NIST SP 800-57
+> **Compliance References**: G-2, G-9 · BSI APP.4.4 · ISO/IEC 27001 · GDPR Art. 32 · NIST SP 800-57
 
-## 1. Zweck
+## 1. Purpose
 
-Dieses Dokument beschreibt die **Voraussetzungen und Konfigurationen**, die von der Betriebsumgebung erfüllt werden müssen, um einen **compliance-konformen Betrieb** von openUKR sicherzustellen. Es referenziert direkt die Anforderungen aus BSI IT-Grundschutz, ISO/IEC 27001, DSGVO, NIS2 und DORA.
+This document describes the **prerequisites and configurations** that must be met by the operating environment to ensure **compliance-conformant operation** of openUKR. It directly references requirements from BSI IT-Grundschutz, ISO/IEC 27001, GDPR, NIS2, and DORA.
 
 > [!IMPORTANT]
-> **openUKR allein kann nicht alle Compliance-Anforderungen erfüllen.** Einige Maßnahmen erfordern Konfiguration auf Cluster- oder Organisations-Ebene.
+> **openUKR alone cannot fulfill all compliance requirements.** Some measures require configuration at the cluster or organization level.
 
-## 2. Verschlüsselung im Ruhezustand (Encryption at Rest)
+## 2. Encryption at Rest
 
-### Anforderung
-- **BSI APP.4.4.A9**: Verschlüsselung von etcd
-- **DSGVO Art. 32 Abs. 1a**: Verschlüsselung personenbezogener Daten
+### Requirement
+- **BSI APP.4.4.A9**: Encryption of etcd
+- **GDPR Art. 32 (1a)**: Encryption of personal data
 
-### Konfiguration
+### Configuration
 
-etcd Encryption-at-Rest **MUSS** aktiviert sein, bevor openUKR in Produktion geht:
+etcd encryption-at-rest **MUST** be enabled before openUKR goes into production:
 
 ```yaml
 # /etc/kubernetes/encryption-config.yaml
@@ -42,119 +42,119 @@ resources:
 ```
 
 ```bash
-# kube-apiserver Flag
+# kube-apiserver flag
 --encryption-provider-config=/etc/kubernetes/encryption-config.yaml
 ```
 
-### Verifikation
+### Verification
 
 ```bash
-# Prüfen ob Secrets verschlüsselt gespeichert sind
+# Check whether secrets are stored encrypted
 kubectl get secrets -n openukr-system -o yaml | head -1
-# Wenn 'k8s:enc:aescbc:...' in etcd → verschlüsselt
+# If 'k8s:enc:aescbc:...' appears in etcd → encrypted
 ```
 
-**openUKR Preflight-Check**: Der Controller wird den Verschlüsselungsstatus als Prometheus-Metrik `openukr_compliance_score` melden (siehe [Roadmap Phase 7](../ROADMAP.md#phase-7--compliance--certification)).
+**openUKR Preflight Check**: The controller will report encryption status as a Prometheus metric `openukr_compliance_score` (see [Roadmap Phase 7](../ROADMAP.md#phase-7--compliance--certification)).
 
-## 3. Zeitsynchronisation (NTP)
+## 3. Time Synchronization (NTP)
 
-### Anforderung
-- **BSI APP.4.4.A14**: Zeitsynchronisation für Audit-Logs
-- **NIST SP 800-57**: Korrekte Zeitstempel für Key-Lifecycle
+### Requirement
+- **BSI APP.4.4.A14**: Time synchronization for audit logs
+- **NIST SP 800-57**: Correct timestamps for key lifecycle
 
-### Begründung
+### Rationale
 
-openUKR verwendet Zeitstempel für:
-- `lastRotation` / `nextRotation` im CRD Status
-- Key-ID-Generierung (`{alg}-{param}-{YYYYMMDD}-{6hex}`)
-- Audit-Log-Einträge
-- Grace Period-Berechnung
+openUKR uses timestamps for:
+- `lastRotation` / `nextRotation` in CRD status
+- Key ID generation (`{alg}-{param}-{YYYYMMDD}-{6hex}`)
+- Audit log entries
+- Grace period calculation
 
-Zeitsynchronisation auf < 1 Sekunde Genauigkeit ist **PFLICHT**.
+Time synchronization to < 1 second accuracy is **REQUIRED**.
 
-### Konfiguration
+### Configuration
 
 ```bash
-# chrony oder systemd-timesyncd auf allen Nodes
+# chrony or systemd-timesyncd on all nodes
 timedatectl status
 # System clock synchronized: yes
 # NTP service: active
 ```
 
-Kubernetes Nodes müssen NTP-synchronisiert sein. Dies ist eine Cluster-Level-Verantwortung.
+Kubernetes nodes must be NTP-synchronized. This is a cluster-level responsibility.
 
-## 4. Datenschutz-Folgenabschätzung (DSFA)
+## 4. Data Protection Impact Assessment (DPIA)
 
-### Anforderung
-- **DSGVO Art. 35**: DSFA bei hohem Risiko für Rechte und Freiheiten
+### Requirement
+- **GDPR Art. 35**: DPIA required when processing poses high risk to rights and freedoms
 
-### Anwendbarkeit
+### Applicability
 
-Eine DSFA ist **erforderlich**, wenn openUKR Schlüssel verwaltet, die zum Schutz personenbezogener Daten eingesetzt werden. Dies ist wahrscheinlich der Fall, wenn:
+A DPIA is **required** when openUKR manages keys used to protect personal data. This is likely the case when:
 
-1. API-Schlüssel Zugang zu Systemen mit personenbezogenen Daten ermöglichen
-2. Signier-Schlüssel für Authentifizierungs-Tokens (JWT) verwendet werden
-3. Verschlüsselungs-Schlüssel für Kundendaten eingesetzt werden
+1. API keys grant access to systems containing personal data
+2. Signing keys are used for authentication tokens (JWT)
+3. Encryption keys are used for customer data
 
-### Inhalt der DSFA
+### DPIA Content
 
-| Abschnitt | Inhalt |
+| Section | Content |
 |---|---|
-| Verarbeitungszweck | Automatisierte Rotation kryptographischer Schlüssel |
-| Rechtsgrundlage | Art. 6 Abs. 1f DSGVO (berechtigtes Interesse an IT-Sicherheit) |
-| Risikobeschreibung | Key-Kompromittierung, -Verlust, -Missbrauch |
-| Technische Maßnahmen | Tabelle unten |
-| Organisatorische Maßnahmen | Zugangskontrollen, Vier-Augen-Prinzip |
+| Processing Purpose | Automated rotation of cryptographic keys |
+| Legal Basis | Art. 6(1)(f) GDPR (legitimate interest in IT security) |
+| Risk Description | Key compromise, loss, or misuse |
+| Technical Measures | Table below |
+| Organizational Measures | Access controls, four-eyes principle |
 
-### Technische Maßnahmen (openUKR)
+### Technical Measures (openUKR)
 
-| Maßnahme | Umsetzung | Status |
+| Measure | Implementation | Status |
 |---|---|---|
-| Verschlüsselung im Ruhezustand | etcd Encryption-at-Rest | Voraussetzung |
-| Schlüsselrotation | Automatisiert via KeyProfile CRD | ✅ Implementiert |
-| Zugriffskontrolle | K8s RBAC, Zwei-Stufen-RBAC | ✅ Geplant (siehe [Roadmap Phase 4](../ROADMAP.md#phase-4--observability--operations)) |
-| Integritätsprüfung | Fingerprint-Verifikation | ✅ Implementiert |
-| Audit-Trail | Structured JSON Logs | ✅ Geplant (siehe [Roadmap Phase 4](../ROADMAP.md#41-structured-audit-events)) |
-| Löschung (Recht auf Vergessen) | Key-Cleanup nach Grace Period | ✅ Geplant (siehe [Roadmap Phase 3](../ROADMAP.md#31-grace-period-implementation)) |
-| Transportverschlüsselung | mTLS für HTTP Publisher | ✅ Geplant (siehe [Roadmap Phase 3](../ROADMAP.md#32-mtls-for-http-publisher)) |
-| Memory-Wiping | `Wipe()` nach Key-Generierung | ✅ Implementiert |
+| Encryption at rest | etcd encryption-at-rest | Prerequisite |
+| Key rotation | Automated via KeyProfile CRD | ✅ Implemented |
+| Access control | K8s RBAC, two-tier RBAC | ✅ Planned (see [Roadmap Phase 4](../ROADMAP.md#phase-4--observability--operations)) |
+| Integrity verification | Fingerprint verification | ✅ Implemented |
+| Audit trail | Structured JSON logs | ✅ Planned (see [Roadmap Phase 4](../ROADMAP.md#41-structured-audit-events)) |
+| Deletion (right to erasure) | Key cleanup after grace period | ✅ Planned (see [Roadmap Phase 3](../ROADMAP.md#31-grace-period-implementation)) |
+| Transport encryption | mTLS for HTTP Publisher | ✅ Planned (see [Roadmap Phase 3](../ROADMAP.md#32-mtls-for-http-publisher)) |
+| Memory wiping | `Wipe()` after key generation | ✅ Implemented |
 
-### Template — DSFA-Verweis
+### Template — DPIA Reference
 
-> Die Datenschutz-Folgenabschätzung für den Einsatz von openUKR muss durch den Verantwortlichen (Art. 4 Nr. 7 DSGVO) durchgeführt werden. openUKR stellt die technischen Maßnahmen bereit; organisatorische Maßnahmen liegen in der Verantwortung der einsetzenden Organisation.
+> The data protection impact assessment for the use of openUKR must be conducted by the data controller (Art. 4(7) GDPR). openUKR provides the technical measures; organizational measures are the responsibility of the deploying organization.
 
 ## 5. RBAC Best Practices
 
-### Anforderung
-- **BSI APP.4.4.A7**: Least Privilege für ServiceAccounts
-- **NIST SP 800-57**: Zugriffskontrolle für Key-Management-Systeme
+### Requirement
+- **BSI APP.4.4.A7**: Least privilege for ServiceAccounts
+- **NIST SP 800-57**: Access control for key management systems
 
-### Empfehlungen
+### Recommendations
 
-| Prinzip | Empfehlung |
+| Principle | Recommendation |
 |---|---|
-| Namespace-Isolation | Jeder KeyProfile-Namespace erhält eigene Role |
-| ServiceAccount pro Funktion | Controller, Webhook, Monitoring: separate SAs |
-| Kein `cluster-admin` | openUKR benötigt NUR ClusterRole für CRDs + TokenReview |
-| Secret-Zugriff einschränken | `resourceNames` filtern update-Zugriff auf spezifische Secrets |
+| Namespace isolation | Each KeyProfile namespace receives its own Role |
+| ServiceAccount per function | Controller, webhook, monitoring: separate SAs |
+| No `cluster-admin` | openUKR only requires ClusterRole for CRDs + TokenReview |
+| Restrict secret access | Use `resourceNames` to filter update access to specific secrets |
 
-### Verantwortungsmatrix
+### Responsibility Matrix
 
-| Kompetenz | openUKR Controller | Cluster-Admin | App-Team |
+| Capability | openUKR Controller | Cluster Admin | App Team |
 |---|---|---|---|
-| CRD lesen/schreiben | ✅ | — | — |
-| Secrets erzeugen (im Namespace) | ✅ | — | — |
-| Secrets lesen | — | — | ✅ |
-| RBAC konfigurieren | — | ✅ | — |
-| KeyProfile erstellen | — | — | ✅ |
+| Read/write CRDs | ✅ | — | — |
+| Create secrets (in namespace) | ✅ | — | — |
+| Read secrets | — | — | ✅ |
+| Configure RBAC | — | ✅ | — |
+| Create KeyProfiles | — | — | ✅ |
 
-## 6. Container-Härtung
+## 6. Container Hardening
 
-### Anforderung
-- **BSI SYS.1.6**: Container-Härtung
+### Requirement
+- **BSI SYS.1.6**: Container hardening
 - **CIS Kubernetes Benchmark 5.7**: Seccomp
 
-### openUKR Defaults (im Helm Chart)
+### openUKR Defaults (in Helm Chart)
 
 ```yaml
 securityContext:
@@ -169,81 +169,81 @@ securityContext:
       - ALL
 ```
 
-### Prüfung
+### Verification
 
 ```bash
-# Verifizieren, dass der Pod als nonroot läuft
+# Verify that the pod runs as non-root
 kubectl get pod -n openukr-system -o jsonpath='{.items[0].spec.securityContext}'
-# Erwartung: runAsNonRoot=true, runAsUser=65532
+# Expected: runAsNonRoot=true, runAsUser=65532
 ```
 
-## 7. Netzwerk-Isolation
+## 7. Network Isolation
 
-### Anforderung
-- **BSI NET.1.1**: Netzwerksegmentierung
+### Requirement
+- **BSI NET.1.1**: Network segmentation
 
 ### openUKR NetworkPolicy
 
-openUKR liefert NetworkPolicies in `config/network-policy/`:
+openUKR ships NetworkPolicies in `config/network-policy/`:
 
-| Policy | Beschreibung |
+| Policy | Description |
 |---|---|
-| `allow-metrics-traffic.yaml` | Nur Pods mit Label `metrics: enabled` dürfen Metriken abrufen |
-| `allow-webhook-traffic.yaml` | Nur K8s API-Server darf den Webhook kontaktieren |
+| `allow-metrics-traffic.yaml` | Only pods with label `metrics: enabled` may scrape metrics |
+| `allow-webhook-traffic.yaml` | Only the K8s API server may contact the webhook |
 
-## 8. Audit-Log-Anforderungen
+## 8. Audit Log Requirements
 
-### Anforderung
-- **BSI OPS.1.1.5**: Protokollierung
-- **NIS2 Art. 21**: Cybersecurity Risk Management
+### Requirement
+- **BSI OPS.1.1.5**: Logging
+- **NIS2 Art. 21**: Cybersecurity risk management
 
-### Pflicht-Events
+### Required Events
 
-openUKR loggt folgende Events als strukturiertes JSON:
+openUKR logs the following events as structured JSON:
 
-| Event | Beschreibung | Severity |
+| Event | Description | Severity |
 |---|---|---|
-| `key.generated` | Neuer Schlüssel erzeugt | INFO |
-| `key.rotated` | Rotation abgeschlossen | INFO |
-| `key.published` | Schlüssel veröffentlicht | INFO |
-| `key.revoked` | Alter Schlüssel gelöscht | INFO |
-| `key.emergency_rotation` | Notfall-Rotation | WARN |
-| `integrity.violation` | Secret-Manipulation erkannt | ERROR |
-| `validation.rejected` | Webhook lehnt Konfiguration ab | WARN |
-| `preflight.failed` | Startup-Check fehlgeschlagen | ERROR |
-| `publish.failed` | Publishing fehlgeschlagen | ERROR |
-| `rotation.overdue` | Rotation überfällig | WARN |
-| `algorithm.deprecated` | Veralteter Algorithmus | WARN |
-| `config.invalid` | Ungültige Konfiguration | ERROR |
+| `key.generated` | New key generated | INFO |
+| `key.rotated` | Rotation completed | INFO |
+| `key.published` | Key published | INFO |
+| `key.revoked` | Old key deleted | INFO |
+| `key.emergency_rotation` | Emergency rotation | WARN |
+| `integrity.violation` | Secret tampering detected | ERROR |
+| `validation.rejected` | Webhook rejected configuration | WARN |
+| `preflight.failed` | Startup check failed | ERROR |
+| `publish.failed` | Publishing failed | ERROR |
+| `rotation.overdue` | Rotation overdue | WARN |
+| `algorithm.deprecated` | Deprecated algorithm | WARN |
+| `config.invalid` | Invalid configuration | ERROR |
 
-### Aufbewahrungsfristen
+### Retention Periods
 
-| Norm | Mindest-Aufbewahrung |
+| Standard | Minimum Retention |
 |---|---|
-| DSGVO Art. 5 Abs. 1e | So kurz wie nötig |
-| BSI OPS.1.1.5 | 90 Tage (empfohlen) |
-| NIS2 | 12 Monate (empfohlen) |
-| DORA | 5 Jahre (Finanzsektor) |
+| GDPR Art. 5(1)(e) | As short as necessary |
+| BSI OPS.1.1.5 | 90 days (recommended) |
+| NIS2 | 12 months (recommended) |
+| DORA | 5 years (financial sector) |
 
-**Empfehlung**: 12 Monate Aufbewahrung, danach archivieren gemäß organisatorischer Richtlinie.
+**Recommendation**: 12 months retention, then archive according to organizational policy.
 
-## 9. Checkliste für die Inbetriebnahme
+## 9. Deployment Checklist
 
-| # | Prüfung | Verantwortung | ☐ |
+| # | Check | Responsibility | ☐ |
 |---|---|---|---|
-| 1 | etcd Encryption-at-Rest aktiviert | Cluster-Admin | |
-| 2 | NTP auf allen Nodes synchronisiert | Cluster-Admin | |
-| 3 | cert-manager installiert + funktional | Cluster-Admin | |
-| 4 | NetworkPolicies angewendet | Cluster-Admin | |
-| 5 | DSFA durchgeführt (falls anwendbar) | Datenschutzbeauftragter | |
-| 6 | RBAC-Rollen geprüft | Cluster-Admin | |
-| 7 | Audit-Log-Weiterleitung konfiguriert (SIEM) | Operations | |
-| 8 | Monitoring + Alerting aktiv | Operations | |
-| 9 | DR-Plan gelesen + verstanden | Operations | |
-| 10 | Backup-Strategie für etcd dokumentiert | Cluster-Admin | |
+| 1 | etcd encryption-at-rest enabled | Cluster Admin | |
+| 2 | NTP synchronized on all nodes | Cluster Admin | |
+| 3 | cert-manager installed and functional | Cluster Admin | |
+| 4 | NetworkPolicies applied | Cluster Admin | |
+| 5 | DPIA conducted (if applicable) | Data Protection Officer | |
+| 6 | RBAC roles reviewed | Cluster Admin | |
+| 7 | Audit log forwarding configured (SIEM) | Operations | |
+| 8 | Monitoring + alerting active | Operations | |
+| 9 | DR plan read and understood | Operations | |
+| 10 | Backup strategy for etcd documented | Cluster Admin | |
 
-## 10. Dokumentenhistorie
+## 10. Document History
 
-| Version | Datum | Autor | Änderung |
+| Version | Date | Author | Change |
 |---|---|---|---|
-| 1.0 | 2026-02-13 | openUKR | Initiale Version (S0.8) |
+| 1.0 | 2026-02-13 | openUKR | Initial version (S0.8) |

@@ -15,9 +15,9 @@
 <!-- ──────────────────────────────────────────────────────────────── -->
 
 > [!CAUTION]
-> **⚠️ Pre-Release — Nicht für den produktiven Einsatz geeignet.**
+> **⚠️ Pre-Release — Not suitable for production use.**
 >
-> openUKR befindet sich in aktiver Entwicklung. Der Code wurde noch nicht vollständig getestet oder einem Security-Audit unterzogen. Es existiert kein offizielles Release.
+> openUKR is under active development. The code has not yet been fully tested or security-audited. No official release exists.
 
 <!-- END PRE-RELEASE BANNER -->
 
@@ -57,7 +57,7 @@ For security reports, please see our [Security Policy](https://github.com/openuk
 | Document | Description |
 |---|---|
 | [Roadmap](https://github.com/openukr/.github/blob/main/ROADMAP.md) | Planned features and version milestones |
-| [Compliance Guide](https://github.com/openukr/.github/blob/main/docs/operations/COMPLIANCE_GUIDE.md) | Operational requirements (etcd encryption, NTP, DSFA) |
+| [Compliance Guide](https://github.com/openukr/.github/blob/main/docs/operations/COMPLIANCE_GUIDE.md) | Operational requirements (etcd encryption, NTP, DPIA) |
 | [Disaster Recovery](https://github.com/openukr/.github/blob/main/docs/operations/DISASTER_RECOVERY.md) | RTO/RPO definitions and recovery procedures |
 | [Security Policy](https://github.com/openukr/.github/blob/main/SECURITY.md) | Hardening details, vulnerability reporting, and compliance mapping |
 | [Contributing](https://github.com/openukr/.github/blob/main/CONTRIBUTING.md) | Contribution guidelines |
